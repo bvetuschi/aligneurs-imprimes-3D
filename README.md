@@ -1,4 +1,4 @@
-# Point Mort Aligneurs
+# Rentabilité Aligneurs
 
 Tableau de bord interactif pour comparer le coût de production des aligneurs **thermoformés** vs **imprimés directement**, et calculer le seuil de rentabilité de l'investissement dans la station d'impression directe (imprimante, polymérisateur, lavage).
 
