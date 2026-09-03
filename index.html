@@ -1,11 +1,10 @@
-
 <!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rentabilité Aligneurs</title>
-<meta name="description" content="Tableau de bord interactif : coût thermoformage vs impression directe des aligneurs, avec seuil de rentabilité (en gouttières et cas patients) et graphique d'économies cumulées.">
+<meta name="description" content="Tableau de bord interactif : coût thermoformage vs impression directe (Form 4B) des aligneurs, avec seuil de rentabilité en mois et graphique d'économies cumulées.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
   :root{
@@ -229,8 +228,8 @@
 
     <details class="group" open>
       <summary><span><span class="group-tag tag-diretta"></span>Impression directe</span><span class="chev">›</span></summary>
-      <div class="field"><label for="volDiretta">Résine directe (ml) <span class="flag">estimation</span></label><input type="number" id="volDiretta" value="8" step="0.5">
-        <div class="hint">Estimation géométrique : non publiée par le fabricant.</div></div>
+      <div class="field"><label for="volDiretta">Résine directe (ml)</label><input type="number" id="volDiretta" value="4.30" step="0.1">
+        <div class="hint">Consommation réelle communiquée pour la Form 4B.</div></div>
       <div class="field-row">
         <div class="field"><label for="prezzoResinaDiretta">Résine directe (€/kg)</label><input type="number" id="prezzoResinaDiretta" value="499" step="1"></div>
         <div class="field"><label for="densita">Densité résine (g/ml)</label><input type="number" id="densita" value="1.10" step="0.01"></div>
@@ -246,18 +245,17 @@
       <div class="field"><label for="tempoRifinituraDiretta">Retrait supports + polissage (min/pièce)</label><input type="number" id="tempoRifinituraDiretta" value="10" step="1"></div>
       <div class="field"><label for="consumDiretta">Consommables (€/pièce)</label><input type="number" id="consumDiretta" value="0.30" step="0.05"></div>
       <div class="field-row">
-        <div class="field"><label for="investVaschetta">Cuve Lift UltraGloss (€)</label><input type="number" id="investVaschetta" value="591" step="1"></div>
-        <div class="field"><label for="litriVitaVaschetta">Litres avant remplacement</label><input type="number" id="litriVitaVaschetta" value="2" step="0.5"></div>
+        <div class="field"><label for="investVaschetta">Cuve résine Formlabs (€)</label><input type="number" id="investVaschetta" value="119" step="1"></div>
+        <div class="field"><label for="stratiVitaVaschetta">Couches avant remplacement</label><input type="number" id="stratiVitaVaschetta" value="75000" step="500"></div>
       </div>
+      <div class="field"><label for="stratiInfornata">Couches par fournée</label><input type="number" id="stratiInfornata" value="391" step="1"></div>
     </details>
 
     <details class="group" open>
       <summary><span><span class="group-tag tag-diretta"></span>Investissement &amp; rentabilité</span><span class="chev">›</span></summary>
-      <div class="field"><label for="investStampanteListino">Asiga Ultra, prix catalogue (€)</label><input type="number" id="investStampanteListino" value="16500" step="100"></div>
-      <div class="field"><label for="investStampanteNetto">Asiga Ultra, net après incitation fiscale (€)</label><input type="number" id="investStampanteNetto" value="5550" step="50">
-        <div class="hint">Simulateur d'amortissement fiscal 2026 (IT) : bvetuschi.github.io/simulatore-iperammortamento-2026</div></div>
+      <div class="field"><label for="investStampante">Imprimante Form 4B (€)</label><input type="number" id="investStampante" value="6152" step="50"></div>
       <div class="field-row">
-        <div class="field"><label for="investCure">Asiga Cure (€)</label><input type="number" id="investCure" value="3990" step="10"></div>
+        <div class="field"><label for="investCure">Form Cure 2nd Gen (€)</label><input type="number" id="investCure" value="999" step="10"></div>
         <div class="field"><label for="investWash">Form Wash 2nd Gen (€)</label><input type="number" id="investWash" value="679" step="10"></div>
       </div>
       <div class="field-row">
@@ -294,7 +292,7 @@
       <div class="kpi">
         <div class="label">Investissement station d'impression</div>
         <div class="value num" id="kpiCapex">–</div>
-        <div class="sub">Asiga Ultra + Cure + Form Wash</div>
+        <div class="sub">Form 4B + Form Cure + Form Wash</div>
       </div>
     </div>
 
@@ -311,7 +309,7 @@
 
     <section class="panel">
       <h3>Seuil de rentabilité de l'impression directe</h3>
-      <p class="panel-sub">Combien de gouttières (et combien de cas patients, à 40 gouttières/cas — modifiable dans « Scénario &amp; main-d'œuvre » à gauche) faut-il imprimer directement pour que l'économie récurrente rembourse les 10&nbsp;219&nbsp;€ de la station d'impression — comparé aux deux équipements de thermoformage possibles.</p>
+      <p class="panel-sub">Combien de gouttières (et combien de cas patients, à 40 gouttières/cas — modifiable dans « Scénario &amp; main-d'œuvre » à gauche) faut-il imprimer directement pour que l'économie récurrente rembourse les 7&nbsp;830&nbsp;€ de la station d'impression — comparé aux deux équipements de thermoformage possibles.</p>
 
       <div class="be-grid" id="beGrid"></div>
 
@@ -327,7 +325,7 @@
     </section>
 
     <footer class="notes">
-      <b>Sources et méthode.</b> Prix résine, machines de découpe, station d'impression (Asiga Ultra/Cure/Form Wash), cuves et temps de process : données réelles fournies par Barbara. Volume de résine en impression directe : estimation géométrique non publiée par le fabricant. Années de vie utile de l'équipement : estimation. Incitation fiscale appliquée uniquement à l'imprimante Asiga Ultra (simulateur de Barbara), pas à Cure/Wash. La cuve est traitée comme une consommation récurrente (remplacée tous les ~2L de résine), pas comme un investissement initial.
+      <b>Sources et méthode.</b> Prix résine, machines de découpe, station d'impression (Form 4B, Form Cure 2nd Gen, Form Wash 2nd Gen), cuve résine et temps de process : données réelles fournies par Barbara. Consommation de résine par gouttière imprimée : valeur communiquée pour la Form 4B. Années de vie utile de l'équipement de découpe : estimation. Aucune incitation fiscale appliquée (dispositif italien, non pertinent pour le marché français). La cuve résine est traitée comme une consommation récurrente (remplacée tous les ~75 000 couches), pas comme un investissement initial.
     </footer>
   </main>
 </div>
@@ -340,10 +338,10 @@
     step:20, arcate:2, orario:25,
     volModello:12, prezzoResinaModello:85, foglio:1.55, tempoModello:8, tempoTermo:12, consumTermo:0.30,
     investVHF:15000, investLAC:55000, macchinaSel:1,
-    volDiretta:8, prezzoResinaDiretta:499, densita:1.10,
+    volDiretta:4.30, prezzoResinaDiretta:499, densita:1.10,
     tempoStampaInf:90, mascherineInfornata:8, tempoLavaggioInf:10, tempoPolimInf:3, tempoRifinituraDiretta:10, consumDiretta:0.30,
-    investStampanteListino:16500, investStampanteNetto:5550, investCure:3990, investWash:679,
-    investVaschetta:591, litriVitaVaschetta:2,
+    investStampante:6152, investCure:999, investWash:679,
+    investVaschetta:119, stratiVitaVaschetta:75000, stratiInfornata:391,
     mascherineAnno:960, anniVita:7
   };
 
@@ -384,11 +382,11 @@
 
     var resinaDiretta = s.volDiretta * (s.prezzoResinaDiretta/1000 * s.densita);
     var manodoperaDiretta = ((s.tempoLavaggioInf + s.tempoPolimInf)/s.mascherineInfornata + s.tempoRifinituraDiretta)/60 * s.orario;
-    var costoVaschettaLitro = s.investVaschetta / s.litriVitaVaschetta;
-    var costoVaschettaPz = (s.volDiretta/1000) * costoVaschettaLitro;
+    var costoStrato = s.investVaschetta / s.stratiVitaVaschetta;
+    var costoVaschettaPz = (costoStrato * s.stratiInfornata) / s.mascherineInfornata;
     var direttaVar = resinaDiretta + manodoperaDiretta + s.consumDiretta + costoVaschettaPz;
 
-    var capex = s.investStampanteNetto + s.investCure + s.investWash;
+    var capex = s.investStampante + s.investCure + s.investWash;
 
     var risparmioVHF = termoVHF - direttaVar;
     var risparmioLAC = termoLAC - direttaVar;
@@ -459,7 +457,7 @@
     var ok = isFinite(beAnni) && beAnni <= 7;
     var cls = !isFinite(beAnni) ? "warn" : (beAnni <= 3 ? "ok" : (beAnni <= 7 ? "" : "warn"));
     var beText = isFinite(bePz) ? fmtNum0(bePz) + " gouttières" : "jamais (aucune économie)";
-    var beAnniText = isFinite(beAnni) ? beAnni.toFixed(1) + " ans" : "—";
+    var beAnniText = isFinite(beAnni) ? fmtNum0(beAnni * 12) + " mois" : "—";
     var casiText = isFinite(bePz) ? "~" + fmtNum0(bePz / mascherinePerCaso) + " cas patients" : "—";
     return "<div class='be-card " + cls + "'>" +
       "<div class='machine'><span class='dot' style='background:" + colorVar + "'></span>vs Thermoformage " + name + "</div>" +
