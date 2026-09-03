@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Point Mort Aligneurs</title>
+<meta name="description" content="Tableau de bord interactif : coût thermoformage vs impression directe des aligneurs, avec seuil de rentabilité (en gouttières et cas patients) et graphique d'économies cumulées.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F5F6F7; --surface:#FFFFFF; --surface-2:#ECEEF1; --surface-3:#E2E5E8;
+    --border:#DBE0E3; --border-soft:#E8EBED;
+    --text:#1A2024; --text-muted:#5C6870; --text-faint:#8A949B;
+    --termo:#AC5C26; --termo-soft:#F4E5D7; --termo-strong:#7C3F17;
+    --diretta:#5A4CDB; --diretta-soft:#E7E4FB; --diretta-strong:#3B2FA0;
+    --vhf:#AC5C26; --lac:#7C3F17;
+    --good:#1E8A5C; --good-soft:#DFF3E8;
+    --bad:#C4453F; --bad-soft:#FBE6E4;
+    --focus:#2E75B6;
+    --shadow: 0 1px 2px rgba(20,24,27,0.06), 0 4px 14px rgba(20,24,27,0.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#15181B; --surface:#1D2124; --surface-2:#24292D; --surface-3:#2B3136;
+      --border:#33393E; --border-soft:#282E32;
+      --text:#E8EAEC; --text-muted:#9BA5AB; --text-faint:#6E787E;
+      --termo:#E0925A; --termo-soft:#3A2A1C; --termo-strong:#F0AC7C;
+      --diretta:#9C90FF; --diretta-soft:#2A2650; --diretta-strong:#B7ADFF;
+      --vhf:#E0925A; --lac:#F0AC7C;
+      --good:#49C88F; --good-soft:#173328;
+      --bad:#E37D78; --bad-soft:#3A2020;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 18px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#15181B; --surface:#1D2124; --surface-2:#24292D; --surface-3:#2B3136;
+    --border:#33393E; --border-soft:#282E32;
+    --text:#E8EAEC; --text-muted:#9BA5AB; --text-faint:#6E787E;
+    --termo:#E0925A; --termo-soft:#3A2A1C; --termo-strong:#F0AC7C;
+    --diretta:#9C90FF; --diretta-soft:#2A2650; --diretta-strong:#B7ADFF;
+    --vhf:#E0925A; --lac:#F0AC7C;
+    --good:#49C88F; --good-soft:#173328;
+    --bad:#E37D78; --bad-soft:#3A2020;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 18px rgba(0,0,0,0.35);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Sans", system-ui, sans-serif;
+    font-size:14px; line-height:1.5;
+  }
+  h1,h2,h3{ text-wrap:balance; margin:0; font-weight:600; }
+  .num{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; }
+
+  .app{ display:grid; grid-template-columns: 328px 1fr; min-height:100vh; }
+  @media (max-width: 880px){ .app{ grid-template-columns: 1fr; } }
+
+  /* ---------- sidebar ---------- */
+  .sidebar{
+    background:var(--surface); border-right:1px solid var(--border);
+    padding:20px 18px 40px; overflow-y:auto;
+  }
+  .brand{ margin-bottom:18px; }
+  .brand .eyebrow{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); font-weight:600; }
+  .brand h1{ font-size:19px; margin-top:2px; }
+  .brand p{ color:var(--text-muted); font-size:12.5px; margin:6px 0 0; }
+
+  details.group{ border-top:1px solid var(--border-soft); padding:12px 0; }
+  details.group:first-of-type{ border-top:1px solid var(--border); margin-top:4px; }
+  details.group summary{
+    cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between;
+    font-weight:600; font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; color:var(--text);
+    padding:2px 0;
+  }
+  details.group summary::-webkit-details-marker{ display:none; }
+  details.group summary .chev{ color:var(--text-faint); transition:transform .15s ease; font-size:11px; }
+  details.group[open] summary .chev{ transform:rotate(90deg); }
+  .group-tag{ display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:7px; vertical-align:1px; }
+  .tag-termo{ background:var(--termo); } .tag-diretta{ background:var(--diretta); } .tag-shared{ background:var(--text-faint); }
+
+  .field{ margin-top:11px; }
+  .field label{ display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px; }
+  .field .hint{ font-size:11px; color:var(--text-faint); margin-top:3px; }
+  .field input[type=number]{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:6px;
+    color:var(--text); font-family:"IBM Plex Mono", monospace; font-size:13px; padding:7px 9px;
+  }
+  .field input[type=number]:focus{ outline:2px solid var(--focus); outline-offset:1px; border-color:transparent; }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .radio-row{ display:flex; gap:14px; margin-top:6px; }
+  .radio-row label{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text); }
+
+  .reset-btn{
+    margin-top:16px; width:100%; padding:9px; border-radius:7px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--text-muted); font-family:inherit; font-size:12.5px; cursor:pointer;
+  }
+  .reset-btn:hover{ color:var(--text); border-color:var(--text-faint); }
+
+  /* ---------- main ---------- */
+  main{ padding:26px 32px 60px; max-width:1180px; }
+  .page-head{ margin-bottom:22px; }
+  .page-head h2{ font-size:22px; }
+  .page-head p{ color:var(--text-muted); margin-top:5px; max-width:62ch; font-size:13px; }
+
+  .kpi-row{ display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:26px; }
+  @media (max-width: 880px){ .kpi-row{ grid-template-columns:repeat(2,1fr); } }
+  .kpi{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px;
+    box-shadow:var(--shadow);
+  }
+  .kpi .label{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); font-weight:600; }
+  .kpi .value{ font-size:23px; font-weight:600; margin-top:6px; }
+  .kpi .sub{ font-size:12px; color:var(--text-muted); margin-top:3px; }
+  .kpi.accent-termo{ border-top:3px solid var(--termo); }
+  .kpi.accent-diretta{ border-top:3px solid var(--diretta); }
+  .kpi.accent-good .value{ color:var(--good); }
+
+  section.panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:20px 22px; margin-bottom:20px; box-shadow:var(--shadow);
+  }
+  section.panel h3{ font-size:15px; }
+  section.panel .panel-sub{ font-size:12.5px; color:var(--text-muted); margin-top:3px; }
+
+  /* comparison table */
+  table.cost-table{ width:100%; border-collapse:collapse; margin-top:16px; font-size:13px; }
+  table.cost-table th{
+    text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint);
+    font-weight:600; padding:0 0 8px; border-bottom:1px solid var(--border);
+  }
+  table.cost-table th:first-child{ text-align:left; }
+  table.cost-table td{ padding:8px 0; border-bottom:1px solid var(--border-soft); text-align:right; }
+  table.cost-table td:first-child{ text-align:left; color:var(--text-muted); }
+  table.cost-table tr.total td{ font-weight:600; color:var(--text); border-top:1px solid var(--border); border-bottom:none; padding-top:10px; }
+  table.cost-table .bar-cell{ position:relative; }
+  .bar-track{ height:6px; border-radius:3px; background:var(--surface-3); margin-top:5px; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:3px; }
+  .fill-termo{ background:var(--termo); } .fill-diretta{ background:var(--diretta); }
+  th.col-termo{ color:var(--termo-strong); } th.col-diretta{ color:var(--diretta-strong); }
+
+  .legend-row{ display:flex; gap:18px; margin-top:14px; font-size:12px; color:var(--text-muted); flex-wrap:wrap; }
+  .legend-row .dot{ display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+
+  /* breakeven */
+  .be-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin:16px 0 20px; }
+  @media (max-width: 700px){ .be-grid{ grid-template-columns:1fr; } }
+  .be-card{ border:1px solid var(--border); border-radius:10px; padding:14px 16px; background:var(--surface-2); }
+  .be-card .machine{ font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; display:flex; align-items:center; gap:7px; }
+  .be-card .machine .dot{ width:9px; height:9px; border-radius:2px; }
+  .be-card .big{ font-size:26px; font-weight:600; margin-top:8px; }
+  .be-card .row{ display:flex; justify-content:space-between; font-size:12.5px; color:var(--text-muted); margin-top:6px; }
+  .be-card .row b{ color:var(--text); font-weight:500; }
+  .be-card.warn{ background:var(--bad-soft); }
+  .be-card.ok{ background:var(--good-soft); }
+
+  .chart-wrap{ position:relative; margin-top:6px; }
+  svg#chart{ width:100%; height:auto; display:block; overflow:visible; }
+  .gridline{ stroke:var(--border); stroke-width:1; }
+  .zero-line{ stroke:var(--text-faint); stroke-width:1; stroke-dasharray:3 3; }
+  .axis-label{ fill:var(--text-faint); font-size:10.5px; font-family:"IBM Plex Mono", monospace; }
+  .series-line{ fill:none; stroke-width:2.25; stroke-linecap:round; }
+  .series-vhf{ stroke:var(--vhf); }
+  .series-lac{ stroke:var(--lac); }
+  .end-label{ font-size:11.5px; font-family:"IBM Plex Mono", monospace; font-weight:600; }
+  .be-dot{ stroke:var(--surface); stroke-width:2; }
+  .crosshair-line{ stroke:var(--text-faint); stroke-width:1; opacity:0; pointer-events:none; }
+  .hover-dot{ opacity:0; pointer-events:none; stroke:var(--surface); stroke-width:2; }
+  .tooltip{
+    position:absolute; pointer-events:none; background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:8px 10px; font-size:11.5px; box-shadow:var(--shadow); opacity:0;
+    transition:opacity .08s ease; min-width:150px; z-index:5;
+  }
+  .tooltip .t-year{ font-weight:600; margin-bottom:5px; font-family:"IBM Plex Mono",monospace; }
+  .tooltip .t-row{ display:flex; justify-content:space-between; gap:14px; padding:1px 0; }
+  .tooltip .t-row .dot{ display:inline-block; width:7px; height:7px; border-radius:2px; margin-right:5px; }
+  .hover-capture{ fill:transparent; }
+
+  footer.notes{ font-size:11.5px; color:var(--text-faint); line-height:1.6; margin-top:6px; }
+  footer.notes b{ color:var(--text-muted); font-weight:600; }
+
+  .flag{ display:inline-block; background:var(--bad-soft); color:var(--bad); font-size:10px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.03em; padding:1px 6px; border-radius:4px; margin-left:6px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="eyebrow">Dental TechPro · comparaison des coûts</div>
+      <h1>Point Mort Aligneurs</h1>
+      <p>Thermoformage vs impression directe. Modifie les hypothèses : tout se recalcule automatiquement.</p>
+    </div>
+
+    <details class="group" open>
+      <summary><span><span class="group-tag tag-shared"></span>Scénario &amp; main-d'œuvre</span><span class="chev">›</span></summary>
+      <div class="field-row">
+        <div class="field"><label for="step">Étapes par arcade</label><input type="number" id="step" value="20" min="1"></div>
+        <div class="field"><label for="arcate">Arcades (1 ou 2)</label><input type="number" id="arcate" value="2" min="1" max="2"></div>
+      </div>
+      <div class="hint">Étapes × arcades = gouttières par cas patient (40 de base). Utilisé pour le total du traitement et pour convertir le seuil de rentabilité en cas patients.</div>
+      <div class="field"><label for="orario">Coût horaire technicien (€/h)</label><input type="number" id="orario" value="25" step="1"></div>
+    </details>
+
+    <details class="group" open>
+      <summary><span><span class="group-tag tag-termo"></span>Thermoformage</span><span class="chev">›</span></summary>
+      <div class="field"><label for="volModello">Résine modèle — DentaForm Grey (ml)</label><input type="number" id="volModello" value="12" step="0.5"></div>
+      <div class="field"><label for="prezzoResinaModello">Prix résine modèle (€/L)</label><input type="number" id="prezzoResinaModello" value="85" step="1"></div>
+      <div class="field"><label for="foglio">Feuille de thermoformage (€/pièce)</label><input type="number" id="foglio" value="1.55" step="0.05"></div>
+      <div class="field-row">
+        <div class="field"><label for="tempoModello">Impression+lavage modèle (min)</label><input type="number" id="tempoModello" value="8" step="1"></div>
+        <div class="field"><label for="tempoTermo">Thermoformage+finition (min)</label><input type="number" id="tempoTermo" value="12" step="1"></div>
+      </div>
+      <div class="field"><label for="consumTermo">Consommables (€/pièce)</label><input type="number" id="consumTermo" value="0.30" step="0.05"></div>
+      <div class="field-row">
+        <div class="field"><label for="investVHF">Machine de découpe VHF (€)</label><input type="number" id="investVHF" value="15000" step="500"></div>
+        <div class="field"><label for="investLAC">Machine de découpe LAC (€)</label><input type="number" id="investLAC" value="55000" step="500"></div>
+      </div>
+      <div class="field">
+        <label>Machine pour les cartes ci-dessus</label>
+        <div class="radio-row">
+          <label><input type="radio" name="macchinaSel" value="1" checked> VHF</label>
+          <label><input type="radio" name="macchinaSel" value="2"> LAC</label>
+        </div>
+      </div>
+    </details>
+
+    <details class="group" open>
+      <summary><span><span class="group-tag tag-diretta"></span>Impression directe</span><span class="chev">›</span></summary>
+      <div class="field"><label for="volDiretta">Résine directe (ml) <span class="flag">estimation</span></label><input type="number" id="volDiretta" value="8" step="0.5">
+        <div class="hint">Estimation géométrique : non publiée par le fabricant.</div></div>
+      <div class="field-row">
+        <div class="field"><label for="prezzoResinaDiretta">Résine directe (€/kg)</label><input type="number" id="prezzoResinaDiretta" value="499" step="1"></div>
+        <div class="field"><label for="densita">Densité résine (g/ml)</label><input type="number" id="densita" value="1.10" step="0.01"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="tempoStampaInf">Impression/fournée (min)</label><input type="number" id="tempoStampaInf" value="90" step="5"></div>
+        <div class="field"><label for="mascherineInfornata">Gouttières/fournée</label><input type="number" id="mascherineInfornata" value="8" step="1"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="tempoLavaggioInf">Lavage/fournée (min)</label><input type="number" id="tempoLavaggioInf" value="10" step="1"></div>
+        <div class="field"><label for="tempoPolimInf">Polym. eau ionisée (min)</label><input type="number" id="tempoPolimInf" value="3" step="1"></div>
+      </div>
+      <div class="field"><label for="tempoRifinituraDiretta">Retrait supports + polissage (min/pièce)</label><input type="number" id="tempoRifinituraDiretta" value="10" step="1"></div>
+      <div class="field"><label for="consumDiretta">Consommables (€/pièce)</label><input type="number" id="consumDiretta" value="0.30" step="0.05"></div>
+      <div class="field-row">
+        <div class="field"><label for="investVaschetta">Cuve Lift UltraGloss (€)</label><input type="number" id="investVaschetta" value="591" step="1"></div>
+        <div class="field"><label for="litriVitaVaschetta">Litres avant remplacement</label><input type="number" id="litriVitaVaschetta" value="2" step="0.5"></div>
+      </div>
+    </details>
+
+    <details class="group" open>
+      <summary><span><span class="group-tag tag-diretta"></span>Investissement &amp; rentabilité</span><span class="chev">›</span></summary>
+      <div class="field"><label for="investStampanteListino">Asiga Ultra, prix catalogue (€)</label><input type="number" id="investStampanteListino" value="16500" step="100"></div>
+      <div class="field"><label for="investStampanteNetto">Asiga Ultra, net après incitation fiscale (€)</label><input type="number" id="investStampanteNetto" value="5550" step="50">
+        <div class="hint">Simulateur d'amortissement fiscal 2026 (IT) : bvetuschi.github.io/simulatore-iperammortamento-2026</div></div>
+      <div class="field-row">
+        <div class="field"><label for="investCure">Asiga Cure (€)</label><input type="number" id="investCure" value="3990" step="10"></div>
+        <div class="field"><label for="investWash">Form Wash 2nd Gen (€)</label><input type="number" id="investWash" value="679" step="10"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="mascherineAnno">Gouttières/an</label><input type="number" id="mascherineAnno" value="960" step="10"></div>
+        <div class="field"><label for="anniVita">Années de vie utile équip. <span class="flag">estimation</span></label><input type="number" id="anniVita" value="7" step="1"></div>
+      </div>
+    </details>
+
+    <button class="reset-btn" id="resetBtn" type="button">Réinitialiser les valeurs de départ</button>
+  </aside>
+
+  <main>
+    <div class="page-head">
+      <h2>Thermoformage vs impression directe — coût, comparaison et seuil de rentabilité</h2>
+      <p>Un cabinet d'orthodontie type avec 80 aligneurs/mois (960/an). Tous les chiffres ci-dessous proviennent des champs à gauche — ce sont les données réelles que tu m'as données, plus deux estimations signalées explicitement.</p>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi accent-termo">
+        <div class="label">Thermoformage / gouttière</div>
+        <div class="value num" id="kpiTermo">–</div>
+        <div class="sub" id="kpiTermoSub">–</div>
+      </div>
+      <div class="kpi accent-diretta">
+        <div class="label">Impression directe / gouttière</div>
+        <div class="value num" id="kpiDiretta">–</div>
+        <div class="sub">coût variable récurrent</div>
+      </div>
+      <div class="kpi accent-good">
+        <div class="label">Économie récurrente</div>
+        <div class="value num" id="kpiRisparmioPct">–</div>
+        <div class="sub" id="kpiRisparmioSub">–</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Investissement station d'impression</div>
+        <div class="value num" id="kpiCapex">–</div>
+        <div class="sub">Asiga Ultra + Cure + Form Wash</div>
+      </div>
+    </div>
+
+    <section class="panel">
+      <h3>Coût par gouttière, poste par poste</h3>
+      <p class="panel-sub">Le thermoformage inclut l'amortissement de la machine de découpe sélectionnée à gauche. L'imprimante de la station d'impression directe n'est pas ici : c'est l'investissement séparé, récupéré via le seuil de rentabilité ci-dessous.</p>
+      <table class="cost-table" id="costTable">
+        <thead>
+          <tr><th>Poste</th><th class="col-termo">Thermoformage</th><th class="col-diretta">Impression directe</th></tr>
+        </thead>
+        <tbody id="costTableBody"></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h3>Seuil de rentabilité de l'impression directe</h3>
+      <p class="panel-sub">Combien de gouttières (et combien de cas patients, à 40 gouttières/cas — modifiable dans « Scénario &amp; main-d'œuvre » à gauche) faut-il imprimer directement pour que l'économie récurrente rembourse les 10&nbsp;219&nbsp;€ de la station d'impression — comparé aux deux équipements de thermoformage possibles.</p>
+
+      <div class="be-grid" id="beGrid"></div>
+
+      <div class="chart-wrap">
+        <svg id="chart" viewBox="0 0 900 320" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+      <div class="legend-row">
+        <span><span class="dot" style="background:var(--vhf)"></span>Économies cumulées vs thermoformage (VHF)</span>
+        <span><span class="dot" style="background:var(--lac)"></span>Économies cumulées vs thermoformage (LAC)</span>
+        <span style="color:var(--text-faint)">— — seuil de rentabilité (investissement remboursé)</span>
+      </div>
+    </section>
+
+    <footer class="notes">
+      <b>Sources et méthode.</b> Prix résine, machines de découpe, station d'impression (Asiga Ultra/Cure/Form Wash), cuves et temps de process : données réelles fournies par Barbara. Volume de résine en impression directe : estimation géométrique non publiée par le fabricant. Années de vie utile de l'équipement : estimation. Incitation fiscale appliquée uniquement à l'imprimante Asiga Ultra (simulateur de Barbara), pas à Cure/Wash. La cuve est traitée comme une consommation récurrente (remplacée tous les ~2L de résine), pas comme un investissement initial.
+    </footer>
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var DEFAULTS = {
+    step:20, arcate:2, orario:25,
+    volModello:12, prezzoResinaModello:85, foglio:1.55, tempoModello:8, tempoTermo:12, consumTermo:0.30,
+    investVHF:15000, investLAC:55000, macchinaSel:1,
+    volDiretta:8, prezzoResinaDiretta:499, densita:1.10,
+    tempoStampaInf:90, mascherineInfornata:8, tempoLavaggioInf:10, tempoPolimInf:3, tempoRifinituraDiretta:10, consumDiretta:0.30,
+    investStampanteListino:16500, investStampanteNetto:5550, investCure:3990, investWash:679,
+    investVaschetta:591, litriVitaVaschetta:2,
+    mascherineAnno:960, anniVita:7
+  };
+
+  var ids = Object.keys(DEFAULTS).filter(function(k){ return k !== "macchinaSel"; });
+
+  function fmtEUR(v, decimals){
+    if (decimals === undefined) decimals = 2;
+    var sign = v < 0 ? "-" : "";
+    return sign + "€" + Math.abs(v).toLocaleString("fr-FR", {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+  }
+  function fmtEUR0(v){ return fmtEUR(v, 0); }
+  function fmtNum0(v){ return Math.round(v).toLocaleString("fr-FR"); }
+  function fmtPct(v){ return (v*100).toLocaleString("fr-FR", {minimumFractionDigits:1, maximumFractionDigits:1}) + "%"; }
+
+  function readState(){
+    var s = {};
+    ids.forEach(function(k){
+      var el = document.getElementById(k);
+      s[k] = parseFloat(el.value);
+      if (isNaN(s[k])) s[k] = DEFAULTS[k];
+    });
+    var sel = document.querySelector('input[name="macchinaSel"]:checked');
+    s.macchinaSel = sel ? parseInt(sel.value, 10) : 1;
+    return s;
+  }
+
+  function compute(s){
+    var mascherineTot = s.step * s.arcate;
+
+    var resinaTermo = s.volModello * (s.prezzoResinaModello/1000);
+    var manodoperaTermo = (s.tempoModello + s.tempoTermo)/60 * s.orario;
+    var mascherineVita = s.mascherineAnno * s.anniVita;
+    var macchinaVHFpz = s.investVHF / mascherineVita;
+    var macchinaLACpz = s.investLAC / mascherineVita;
+    var termoVHF = resinaTermo + s.foglio + manodoperaTermo + s.consumTermo + macchinaVHFpz;
+    var termoLAC = resinaTermo + s.foglio + manodoperaTermo + s.consumTermo + macchinaLACpz;
+    var termoSel = s.macchinaSel === 1 ? termoVHF : termoLAC;
+
+    var resinaDiretta = s.volDiretta * (s.prezzoResinaDiretta/1000 * s.densita);
+    var manodoperaDiretta = ((s.tempoLavaggioInf + s.tempoPolimInf)/s.mascherineInfornata + s.tempoRifinituraDiretta)/60 * s.orario;
+    var costoVaschettaLitro = s.investVaschetta / s.litriVitaVaschetta;
+    var costoVaschettaPz = (s.volDiretta/1000) * costoVaschettaLitro;
+    var direttaVar = resinaDiretta + manodoperaDiretta + s.consumDiretta + costoVaschettaPz;
+
+    var capex = s.investStampanteNetto + s.investCure + s.investWash;
+
+    var risparmioVHF = termoVHF - direttaVar;
+    var risparmioLAC = termoLAC - direttaVar;
+
+    var bePzVHF = risparmioVHF > 0 ? capex / risparmioVHF : Infinity;
+    var bePzLAC = risparmioLAC > 0 ? capex / risparmioLAC : Infinity;
+    var beAnniVHF = bePzVHF / s.mascherineAnno;
+    var beAnniLAC = bePzLAC / s.mascherineAnno;
+
+    var risparmioAnnuoVHF = s.mascherineAnno * risparmioVHF;
+    var risparmioAnnuoLAC = s.mascherineAnno * risparmioLAC;
+
+    return {
+      mascherineTot: mascherineTot,
+      resinaTermo: resinaTermo, manodoperaTermo: manodoperaTermo, macchinaVHFpz: macchinaVHFpz, macchinaLACpz: macchinaLACpz,
+      termoVHF: termoVHF, termoLAC: termoLAC, termoSel: termoSel,
+      resinaDiretta: resinaDiretta, manodoperaDiretta: manodoperaDiretta, costoVaschettaPz: costoVaschettaPz, direttaVar: direttaVar,
+      capex: capex,
+      risparmioVHF: risparmioVHF, risparmioLAC: risparmioLAC,
+      bePzVHF: bePzVHF, bePzLAC: bePzLAC, beAnniVHF: beAnniVHF, beAnniLAC: beAnniLAC,
+      risparmioAnnuoVHF: risparmioAnnuoVHF, risparmioAnnuoLAC: risparmioAnnuoLAC
+    };
+  }
+
+  function renderKPIs(s, c){
+    document.getElementById("kpiTermo").textContent = fmtEUR(c.termoSel);
+    document.getElementById("kpiTermoSub").textContent = "machine de découpe : " + (s.macchinaSel === 1 ? "VHF" : "LAC");
+    document.getElementById("kpiDiretta").textContent = fmtEUR(c.direttaVar);
+    var risp = c.termoSel - c.direttaVar;
+    var rispPct = risp / c.termoSel;
+    document.getElementById("kpiRisparmioPct").textContent = (risp >= 0 ? "" : "+") + fmtPct(risp >= 0 ? rispPct : -rispPct) + (risp >= 0 ? "" : " (supplément)");
+    var kpiRisp = document.getElementById("kpiRisparmioPct");
+    kpiRisp.style.color = risp >= 0 ? "var(--good)" : "var(--bad)";
+    document.getElementById("kpiRisparmioSub").textContent = fmtEUR(Math.abs(risp)) + "/gouttière " + (risp >= 0 ? "économisés" : "en plus") + " en imprimant directement";
+    document.getElementById("kpiCapex").textContent = fmtEUR0(c.capex);
+  }
+
+  function costRow(label, termoVal, direttaVal, maxVal){
+    var termoPct = maxVal > 0 ? Math.max(0, termoVal)/maxVal*100 : 0;
+    var direttaPct = maxVal > 0 ? Math.max(0, direttaVal)/maxVal*100 : 0;
+    return "<tr>" +
+      "<td>" + label + "</td>" +
+      "<td class='num bar-cell'>" + fmtEUR(termoVal) + "<div class='bar-track'><div class='bar-fill fill-termo' style='width:" + termoPct + "%'></div></div></td>" +
+      "<td class='num bar-cell'>" + fmtEUR(direttaVal) + "<div class='bar-track'><div class='bar-fill fill-diretta' style='width:" + direttaPct + "%'></div></div></td>" +
+      "</tr>";
+  }
+
+  function renderCostTable(s, c){
+    var machineLabel = "Machine de découpe (" + (s.macchinaSel === 1 ? "VHF" : "LAC") + ")";
+    var termoMachine = s.macchinaSel === 1 ? c.macchinaVHFpz : c.macchinaLACpz;
+    var rows = [
+      ["Résine", c.resinaTermo, c.resinaDiretta],
+      ["Feuille de thermoformage", s.foglio, 0],
+      ["Main-d'œuvre", c.manodoperaTermo, c.manodoperaDiretta],
+      ["Consommables", s.consumTermo, s.consumDiretta],
+      [machineLabel, termoMachine, 0],
+      ["Cuve résine (usure)", 0, c.costoVaschettaPz]
+    ];
+    var maxVal = 0;
+    rows.forEach(function(r){ maxVal = Math.max(maxVal, r[1], r[2]); });
+    var html = rows.map(function(r){ return costRow(r[0], r[1], r[2], maxVal); }).join("");
+    html += "<tr class='total'><td>Total par gouttière</td><td class='num'>" + fmtEUR(c.termoSel) + "</td><td class='num'>" + fmtEUR(c.direttaVar) + "</td></tr>";
+    html += "<tr class='total'><td>Total traitement (" + c.mascherineTot + " gouttières)</td><td class='num'>" + fmtEUR0(c.termoSel*c.mascherineTot) + "</td><td class='num'>" + fmtEUR0(c.direttaVar*c.mascherineTot) + "</td></tr>";
+    document.getElementById("costTableBody").innerHTML = html;
+  }
+
+  function beCard(name, colorVar, risparmio, bePz, beAnni, risparmioAnnuo, mascherinePerCaso){
+    var ok = isFinite(beAnni) && beAnni <= 7;
+    var cls = !isFinite(beAnni) ? "warn" : (beAnni <= 3 ? "ok" : (beAnni <= 7 ? "" : "warn"));
+    var beText = isFinite(bePz) ? fmtNum0(bePz) + " gouttières" : "jamais (aucune économie)";
+    var beAnniText = isFinite(beAnni) ? beAnni.toFixed(1) + " ans" : "—";
+    var casiText = isFinite(bePz) ? "~" + fmtNum0(bePz / mascherinePerCaso) + " cas patients" : "—";
+    return "<div class='be-card " + cls + "'>" +
+      "<div class='machine'><span class='dot' style='background:" + colorVar + "'></span>vs Thermoformage " + name + "</div>" +
+      "<div class='big num'>" + beText + "</div>" +
+      "<div class='row'><span>en cas patients (" + mascherinePerCaso + " gouttières/cas)</span><b class='num'>" + casiText + "</b></div>" +
+      "<div class='row'><span>délai de rentabilité</span><b class='num'>" + beAnniText + "</b></div>" +
+      "<div class='row'><span>économie / gouttière</span><b class='num'>" + fmtEUR(risparmio) + "</b></div>" +
+      "<div class='row'><span>économie annuelle en rythme de croisière</span><b class='num'>" + fmtEUR0(risparmioAnnuo) + "</b></div>" +
+      "</div>";
+  }
+
+  function renderBECards(s, c){
+    document.getElementById("beGrid").innerHTML =
+      beCard("VHF", "var(--vhf)", c.risparmioVHF, c.bePzVHF, c.beAnniVHF, c.risparmioAnnuoVHF, c.mascherineTot) +
+      beCard("LAC", "var(--lac)", c.risparmioLAC, c.bePzLAC, c.beAnniLAC, c.risparmioAnnuoLAC, c.mascherineTot);
+  }
+
+  // ---------------- chart ----------------
+  var svgNS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs){
+    var el = document.createElementNS(svgNS, tag);
+    for (var k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  var W = 900, H = 320, M = {top:16, right:86, bottom:30, left:64};
+  var plotW = W - M.left - M.right, plotH = H - M.top - M.bottom;
+
+  function renderChart(s, c){
+    var svg = document.getElementById("chart");
+    svg.innerHTML = "";
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+
+    var maxYears = Math.max(7, Math.ceil(Math.max(isFinite(c.beAnniVHF) ? c.beAnniVHF : 0, isFinite(c.beAnniLAC) ? c.beAnniLAC : 0)) + 1);
+    maxYears = Math.min(maxYears, 15);
+    var years = []; for (var y = 0; y <= maxYears; y++) years.push(y);
+
+    function cumAt(y, risparmio){ return y * s.mascherineAnno * risparmio - c.capex; }
+    var seriesVHF = years.map(function(y){ return cumAt(y, c.risparmioVHF); });
+    var seriesLAC = years.map(function(y){ return cumAt(y, c.risparmioLAC); });
+
+    var allVals = seriesVHF.concat(seriesLAC, [0]);
+    var yMin = Math.min.apply(null, allVals), yMax = Math.max.apply(null, allVals);
+    var pad = (yMax - yMin) * 0.08 || 1000;
+    yMin -= pad; yMax += pad;
+
+    function xPix(y){ return M.left + (y / maxYears) * plotW; }
+    function yPix(v){ return M.top + plotH - ((v - yMin) / (yMax - yMin)) * plotH; }
+
+    // gridlines (y)
+    var ticksY = 5;
+    for (var i = 0; i <= ticksY; i++){
+      var v = yMin + (yMax - yMin) * i / ticksY;
+      var yy = yPix(v);
+      svg.appendChild(svgEl("line", {x1:M.left, x2:W-M.right, y1:yy, y2:yy, class:"gridline"}));
+      var lbl = svgEl("text", {x:M.left-8, y:yy+3, class:"axis-label", "text-anchor":"end"});
+      lbl.textContent = (v/1000).toLocaleString("it-IT", {maximumFractionDigits:1}) + "k";
+      svg.appendChild(lbl);
+    }
+    // x axis ticks
+    years.forEach(function(y){
+      if (y % (maxYears > 10 ? 2 : 1) !== 0) return;
+      var xx = xPix(y);
+      var lbl = svgEl("text", {x:xx, y:H-M.bottom+18, class:"axis-label", "text-anchor":"middle"});
+      lbl.textContent = "année " + y;
+      svg.appendChild(lbl);
+    });
+
+    // zero line
+    var zy = yPix(0);
+    svg.appendChild(svgEl("line", {x1:M.left, x2:W-M.right, y1:zy, y2:zy, class:"zero-line"}));
+
+    function pathFor(series){
+      return series.map(function(v, idx){ return (idx===0?"M":"L") + xPix(years[idx]).toFixed(1) + "," + yPix(v).toFixed(1); }).join(" ");
+    }
+
+    var pathVHF = svgEl("path", {d: pathFor(seriesVHF), class:"series-line series-vhf"});
+    var pathLAC = svgEl("path", {d: pathFor(seriesLAC), class:"series-line series-lac"});
+    svg.appendChild(pathVHF); svg.appendChild(pathLAC);
+
+    // breakeven markers
+    function addBEMarker(beAnni, colorVar){
+      if (!isFinite(beAnni) || beAnni > maxYears) return;
+      var xx = xPix(beAnni), yy = yPix(0);
+      svg.appendChild(svgEl("circle", {cx:xx, cy:yy, r:5, fill:colorVar, class:"be-dot"}));
+    }
+    addBEMarker(c.beAnniVHF, "var(--vhf)");
+    addBEMarker(c.beAnniLAC, "var(--lac)");
+
+    // end labels
+    function endLabel(v, colorVar, dy){
+      var xx = xPix(maxYears)+8, yy = yPix(v)+dy;
+      var t = svgEl("text", {x:xx, y:yy+4, class:"end-label", fill:colorVar});
+      t.textContent = fmtEUR0(v);
+      svg.appendChild(t);
+      svg.appendChild(svgEl("circle", {cx:xPix(maxYears), cy:yPix(v), r:3.5, fill:colorVar}));
+    }
+    endLabel(seriesVHF[seriesVHF.length-1], "var(--vhf)", -6);
+    endLabel(seriesLAC[seriesLAC.length-1], "var(--lac)", 6);
+
+    // hover layer
+    var crossV = svgEl("line", {x1:0,x2:0,y1:M.top,y2:H-M.bottom, class:"crosshair-line"});
+    var dotVHF = svgEl("circle", {r:4.5, class:"hover-dot", fill:"var(--vhf)"});
+    var dotLAC = svgEl("circle", {r:4.5, class:"hover-dot", fill:"var(--lac)"});
+    svg.appendChild(crossV); svg.appendChild(dotVHF); svg.appendChild(dotLAC);
+
+    var capture = svgEl("rect", {x:M.left, y:M.top, width:plotW, height:plotH, class:"hover-capture"});
+    svg.appendChild(capture);
+
+    var tooltip = document.getElementById("tooltip");
+    var wrap = svg.parentElement;
+
+    function onMove(evt){
+      var rect = svg.getBoundingClientRect();
+      var scaleX = W / rect.width;
+      var mx = (evt.clientX - rect.left) * scaleX;
+      var yFrac = Math.min(Math.max((mx - M.left) / plotW, 0), 1);
+      var yearVal = yFrac * maxYears;
+      var idx = Math.round(yearVal);
+      idx = Math.min(Math.max(idx, 0), years.length-1);
+      var xx = xPix(years[idx]);
+      crossV.setAttribute("x1", xx); crossV.setAttribute("x2", xx); crossV.style.opacity = 1;
+      dotVHF.setAttribute("cx", xx); dotVHF.setAttribute("cy", yPix(seriesVHF[idx])); dotVHF.style.opacity = 1;
+      dotLAC.setAttribute("cx", xx); dotLAC.setAttribute("cy", yPix(seriesLAC[idx])); dotLAC.style.opacity = 1;
+
+      var wrapRect = wrap.getBoundingClientRect();
+      var tx = (xx/scaleX) + 12;
+      var ty = ((yPix(Math.max(seriesVHF[idx], seriesLAC[idx]))) / scaleX) - 10;
+      if (tx + 170 > wrapRect.width) tx = (xx/scaleX) - 178;
+      tooltip.style.left = tx + "px";
+      tooltip.style.top = Math.max(ty, 0) + "px";
+      tooltip.style.opacity = 1;
+      tooltip.innerHTML =
+        "<div class='t-year'>Année " + years[idx] + "</div>" +
+        "<div class='t-row'><span><span class='dot' style='background:var(--vhf)'></span>vs VHF</span><span class='num'>" + fmtEUR0(seriesVHF[idx]) + "</span></div>" +
+        "<div class='t-row'><span><span class='dot' style='background:var(--lac)'></span>vs LAC</span><span class='num'>" + fmtEUR0(seriesLAC[idx]) + "</span></div>";
+    }
+    function onLeave(){
+      crossV.style.opacity = 0; dotVHF.style.opacity = 0; dotLAC.style.opacity = 0; tooltip.style.opacity = 0;
+    }
+    capture.addEventListener("mousemove", onMove);
+    capture.addEventListener("mouseleave", onLeave);
+    capture.addEventListener("touchmove", function(e){ if (e.touches[0]) onMove(e.touches[0]); }, {passive:true});
+  }
+
+  function renderAll(){
+    var s = readState();
+    var c = compute(s);
+    renderKPIs(s, c);
+    renderCostTable(s, c);
+    renderBECards(s, c);
+    renderChart(s, c);
+  }
+
+  ids.forEach(function(k){
+    document.getElementById(k).addEventListener("input", renderAll);
+  });
+  document.querySelectorAll('input[name="macchinaSel"]').forEach(function(el){
+    el.addEventListener("change", renderAll);
+  });
+  document.getElementById("resetBtn").addEventListener("click", function(){
+    ids.forEach(function(k){ document.getElementById(k).value = DEFAULTS[k]; });
+    document.querySelector('input[name="macchinaSel"][value="1"]').checked = true;
+    renderAll();
+  });
+
+  renderAll();
+})();
+</script>
+
+</body>
+</html>
